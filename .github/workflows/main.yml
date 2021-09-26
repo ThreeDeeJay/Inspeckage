@@ -36,10 +36,30 @@ jobs:
       - name: Build Release with Gradle
         run: |
           ./gradlew :app:assembleRelease --daemon --parallel
+          
+      - name: Sign Apk
+        run: |
+          PASSWD=$(echo $RANDOM | md5sum | head -c 15)
+          ALIAS="random"
+          keytool -genkey -noprompt -v -keystore android.keystore -alias ${ALIAS} -keyalg RSA -keysize 2048 -validity 10000 -keypass ${PASSWD} -storepass ${PASSWD} -dname "CN=xx, OU=xx, O=xx, L=xx, S=xx, C=xx"
+          apksigner=${ANDROID_SDK_ROOT}/build-tools/30.0.3/apksigner
+          $apksigner sign --ks ./android.keystore \
+          --ks-pass pass:${PASSWD} \
+          --ks-key-alias ${ALIAS} \
+          --key-pass pass:${PASSWD} \
+          --in "./app/build/outputs/apk/release/app-release-unsigned.apk" \
+          --out "./app/build/outputs/apk/release/app-release-signed.apk"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v2
         if: runner.os == 'Linux'
         with:
           name: SNAPSHOT
-          path: ./app/
+          path: ./app/build/
+          
+      - name: Upload Apks
+        uses: actions/upload-artifact@v2
+        if: runner.os == 'Linux'
+        with:
+          name: Apks
+          path: ./app/build/outputs/apk/release/
